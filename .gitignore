@@ -1,0 +1,23 @@
+# Local settings and credentials
+.env
+.env.*
+!.env.example
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.log
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.db
+*.sqlite3
+
+# Frontend
+node_modules/
+dist/
+build/
+coverage/
