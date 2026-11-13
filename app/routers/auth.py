@@ -31,6 +31,13 @@ INACTIVE_MESSAGES = {
 DUMMY_HASH = hash_password("dummy-password-for-timing")
 
 
+DEFAULT_INACTIVE_MESSAGE = "حساب کاربری فعال نیست"
+
+def ensure_user_is_active(user: User) -> None:
+    """Only ACTIVE users may log in or extend a session; otherwise answer 403 with a matching message."""
+    if user.status != "ACTIVE":
+        raise ApiError(403, "FORBIDDEN", INACTIVE_MESSAGES.get(user.status, DEFAULT_INACTIVE_MESSAGE))
+
 def build_tokens(user_id: str) -> TokenResponse:
     return TokenResponse(
         access_token=create_access_token(user_id),
@@ -48,7 +55,7 @@ def register_failed_attempt(db: Session, user: User, now: datetime) -> None:
     db.refresh(user)
     if user.failed_login_attempts >= MAX_FAILED_ATTEMPTS:
         user.failed_login_attempts = 0
-        user.locked_until = now + timedelta(seconds=LOCK_MINUTES)
+        user.locked_until = now + timedelta(minutes=LOCK_MINUTES)
         db.commit()
 
 
@@ -84,8 +91,7 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
         db.commit()
 
     # 4) only ACTIVE users get a token
-    if user.status != "ACTIVE":
-        raise ApiError(403, "FORBIDDEN", INACTIVE_MESSAGES.get(user.status, "حساب کاربری فعال نیست"))
+    ensure_user_is_active(user)
 
     return build_tokens(user.id)
 
@@ -101,8 +107,7 @@ def refresh(body: RefreshRequest, db: Session = Depends(get_db)):
     user = db.get(User, payload["sub"])
     if user is None:
         raise ApiError(401, "UNAUTHORIZED", "توکن نامعتبر است")
-    if user.status != "ACTIVE":  # blocked/inactive users can not extend their session
-        raise ApiError(403, "FORBIDDEN", INACTIVE_MESSAGES.get(user.status, "حساب کاربری فعال نیست"))
+    ensure_user_is_active(user)
     return build_tokens(user.id)
 
 
