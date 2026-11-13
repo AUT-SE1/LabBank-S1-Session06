@@ -50,3 +50,13 @@ def test_other_users_are_not_affected(client):
     fail_login(client, 5)
     assert login(client).status_code == 429
     assert login(client, national_code="0499370899").status_code == 200
+
+def test_lock_lasts_15_minutes(client):
+    register_user(client)
+    fail_login(client, 5)
+
+    response = login(client)  # still locked, even with the correct password
+    assert response.status_code == 429
+    retry_after = response.json()["retry_after_seconds"]
+    assert 14 * 60 < retry_after <= 15 * 60  # about 15 minutes, not 15 seconds
+    assert int(response.headers["Retry-After"]) == retry_after
